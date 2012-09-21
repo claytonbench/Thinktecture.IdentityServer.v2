@@ -3,6 +3,7 @@
  * see license.txt
  */
 
+using System;
 using System.ComponentModel.Composition;
 using System.IdentityModel.Protocols.WSTrust;
 using System.Net;
@@ -31,6 +32,16 @@ namespace Thinktecture.IdentityServer.Protocols.OAuth2
         {
             UserRepository = userRepository;
             ConfigurationRepository = configurationRepository;
+        }
+
+        // "implicit flow"
+        [Authorize]
+        public HttpResponseMessage Get(string scope)
+        {
+            var resp = Request.CreateResponse(HttpStatusCode.Found);
+            resp.Headers.Location = new Uri(scope + "?token=foo");
+
+            return resp;
         }
 
         public HttpResponseMessage Post(TokenRequest tokenRequest)

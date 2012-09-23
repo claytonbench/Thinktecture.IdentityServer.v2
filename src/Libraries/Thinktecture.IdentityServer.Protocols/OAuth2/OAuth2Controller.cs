@@ -36,12 +36,41 @@ namespace Thinktecture.IdentityServer.Protocols.OAuth2
 
         // "implicit flow"
         [Authorize]
-        public HttpResponseMessage Get(string scope)
+        public HttpResponseMessage Get(string client_id, string scope, string redirect_uri)
         {
-            var resp = Request.CreateResponse(HttpStatusCode.Found);
-            resp.Headers.Location = new Uri(scope + "?token=foo");
+            var tokenType = ConfigurationRepository.Global.DefaultHttpTokenType;
 
-            return resp;
+            // todo: check client_id and redirect_uri
+
+            EndpointReference appliesTo;
+            try
+            {
+                appliesTo = new EndpointReference(scope);
+                Tracing.Information("OAuth2 endpoint called for scope: " + scope);
+            }
+            catch
+            {
+                Tracing.Error("Malformed scope: " + scope);
+                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "malformed scope name.");
+            }
+
+            var sts = new STS();
+            TokenResponse tokenResponse;
+            if (sts.TryIssueToken(appliesTo, ClaimsPrincipal.Current, tokenType, out tokenResponse))
+            {
+                var resp = Request.CreateResponse(HttpStatusCode.Found);
+                resp.Headers.Location = new Uri(string.Format("{0}#access_token={1}&token_type={2}&expires_in={3}",
+                    redirect_uri,
+                    tokenResponse.AccessToken,
+                    tokenResponse.TokenType,
+                    tokenResponse.ExpiresIn));
+
+                return resp;
+            }
+            else
+            {
+                return Request.CreateErrorResponse(HttpStatusCode.BadRequest, "invalid request.");
+            }
         }
 
         public HttpResponseMessage Post(TokenRequest tokenRequest)
